@@ -1,0 +1,81 @@
+name: lokerku_apps
+description: "LokerKu - Your Personal Job Application Tracker"
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # Local Database
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+
+  # Firebase
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
+  google_sign_in: ^6.2.2
+
+  # Routing
+  go_router: ^13.0.1
+
+  # UI Components
+  phosphor_flutter: ^2.0.1
+  google_fonts: ^6.1.0
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
+  # Charts for Stats
+  fl_chart: ^0.66.0
+
+  # Utilities
+  intl: ^0.20.2
+  connectivity_plus: ^5.0.2
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.2
+  uuid: ^4.2.2
+  purchases_flutter: ^9.10.1
+  purchases_ui_flutter: ^9.10.1
+
+  # Permissions
+  permission_handler: ^11.3.1
+
+  # Firebase Messaging
+  firebase_messaging: ^14.7.10
+
+  # Localization
+  flutter_localization: ^0.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.8
+  isar_generator: ^3.1.0+1
+  riverpod_generator: ^2.3.9
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  android_icon_name: "ic_launcher"
+  adaptive_icon_background: "#2BAD7F"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

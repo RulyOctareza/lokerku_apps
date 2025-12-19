@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "1058761588240",
+    "project_id": "lokerku-apps",
+    "storage_bucket": "lokerku-apps.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1058761588240:android:7a308ad232d53f1c4cd495",
+        "android_client_info": {
+          "package_name": "com.rulyoctareza.lokerkuApps"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1058761588240-pna7u0m9hm7id8f43b7o3rnsf031roqp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rulyoctareza.lokerkuApps",
+            "certificate_hash": "100894444b26eb9c71c39c242dba696a6ec02c33"
+          }
+        },
+        {
+          "client_id": "1058761588240-ad013gb1t9hmkfp5h37dr60fcruf5js5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5gmWqkYIssBZfYOA8BEl7ROk-jSsFLPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1058761588240-ad013gb1t9hmkfp5h37dr60fcruf5js5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1058761588240-d3in37kdj47imrpc0tk3gged132lurpn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.rulyoctareza.lokerkuApps"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1058761588240:android:0c72ea4d784dbd314cd495",
+        "android_client_info": {
+          "package_name": "com.rulyoctareza.lokerku_apps"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1058761588240-ad013gb1t9hmkfp5h37dr60fcruf5js5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5gmWqkYIssBZfYOA8BEl7ROk-jSsFLPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1058761588240-ad013gb1t9hmkfp5h37dr60fcruf5js5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1058761588240-d3in37kdj47imrpc0tk3gged132lurpn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.rulyoctareza.lokerkuApps"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
