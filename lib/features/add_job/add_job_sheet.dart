@@ -184,7 +184,7 @@ class _AddJobSheetState extends State<AddJobSheet> {
                 ),
                 const SizedBox(height: AppSizes.spacing8),
                 DropdownButtonFormField<JobPlatform>(
-                  value: _selectedPlatform,
+                  initialValue: _selectedPlatform,
                   decoration: const InputDecoration(),
                   items: JobPlatform.values.map((platform) {
                     return DropdownMenuItem(

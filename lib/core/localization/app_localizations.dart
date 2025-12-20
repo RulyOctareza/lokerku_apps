@@ -1,10 +1,11 @@
 /// Localization strings for the app
 /// Supports Indonesian and English
+library;
 
 class AppLocalizations {
   static String currentLocale = 'id';
 
-  static Map<String, Map<String, String>> _localizedStrings = {
+  static final Map<String, Map<String, String>> _localizedStrings = {
     'id': {
       // General
       'app_name': 'LokerKu',

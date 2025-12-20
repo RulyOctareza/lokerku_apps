@@ -51,8 +51,6 @@ class ThemeProvider extends ChangeNotifier {
       onError: Colors.white,
       surface: Colors.white,
       onSurface: Color(0xFF1A1A2E),
-      background: Color(0xFFF5F7FA),
-      onBackground: Color(0xFF1A1A2E),
     ),
 
     // AppBar Theme
@@ -204,8 +202,6 @@ class ThemeProvider extends ChangeNotifier {
       onError: Colors.white,
       surface: Color(0xFF1E1E1E),
       onSurface: Color(0xFFE5E7EB),
-      background: Color(0xFF121212),
-      onBackground: Color(0xFFE5E7EB),
     ),
 
     // AppBar Theme (DARK)

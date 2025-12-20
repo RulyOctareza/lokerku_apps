@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         AppStrings.loginTitle,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: colorScheme.onBackground,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: AppSizes.spacing8),
@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         AppStrings.loginSubtitle,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onBackground.withOpacity(0.7),
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
 
@@ -223,13 +223,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               AppStrings.continueAsGuest,
                               style: theme.textTheme.bodyLarge?.copyWith(
-                                color: colorScheme.onBackground,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             Text(
                               AppStrings.guestModeNote,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onBackground.withOpacity(
+                                color: colorScheme.onSurface.withOpacity(
                                   0.5,
                                 ),
                               ),
@@ -245,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         AppStrings.termsAgreement,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onBackground.withOpacity(0.5),
+                          color: colorScheme.onSurface.withOpacity(0.5),
                         ),
                       ),
                     ],

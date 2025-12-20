@@ -372,7 +372,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text(label, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: AppSizes.spacing8),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           decoration: InputDecoration(
             filled: !enabled,
             fillColor: enabled ? null : AppColors.surface,
