@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -12,18 +13,19 @@ import '../../data/services/auth_service.dart';
 import '../../data/services/notification_service.dart';
 import 'widgets/stats_card.dart';
 import 'widgets/job_card.dart';
+import 'widgets/sync_status_indicator.dart';
 import '../add_job/add_job_sheet.dart';
 
 /// Home Screen - Dashboard
 /// Shows stats summary and recent job applications
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<JobApplication> _recentJobs = [];
   Map<ApplicationStatus, int> _statusCounts = {};
   bool _isLoading = true;
@@ -174,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () => context.push(AppRouter.profile),
                         child: CircleAvatar(
                           radius: 24,
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                           backgroundImage: AuthService.photoUrl != null
                               ? NetworkImage(AuthService.photoUrl!)
                               : null,
@@ -217,17 +219,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           final notificationService = NotificationService();
                           final granted = await notificationService
                               .requestPermission(context);
-                          if (mounted) {
-                            NotificationService.showPermissionResult(
-                              context,
-                              granted,
-                            );
-                          }
+                          if (!context.mounted) return;
+                          NotificationService.showPermissionResult(
+                            context,
+                            granted,
+                          );
                         },
                         icon: const Icon(Icons.notifications_outlined),
                       ),
                     ],
                   ),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.spacing16,
+                  ),
+                  child: const SyncStatusIndicator(),
                 ),
               ),
 
@@ -275,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(
                   child: Container(
                     padding: const EdgeInsets.all(AppSizes.spacing16),
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     child: Row(
                       children: [
                         Text(

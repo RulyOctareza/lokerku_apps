@@ -40,7 +40,7 @@ class OnboardingPage extends StatelessWidget {
               width: 160,
               height: 160,
               decoration: BoxDecoration(
-                color: data.iconColor.withOpacity(0.1),
+                color: data.iconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(data.icon, size: 80, color: data.iconColor),
@@ -81,7 +81,7 @@ class OnboardingPage extends StatelessWidget {
                         width: 24,
                         height: 24,
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(

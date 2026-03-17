@@ -125,7 +125,14 @@ class AppRouter {
         path: jobDetail,
         name: 'jobDetail',
         builder: (context, state) {
-          final jobId = state.pathParameters['id']!;
+          final rawId = state.pathParameters['id'];
+          final jobId = rawId != null ? int.tryParse(rawId) : null;
+          if (jobId == null) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Lamaran tidak ditemukan')),
+              body: const Center(child: Text('ID lamaran tidak valid')),
+            );
+          }
           return JobDetailScreen(jobId: jobId);
         },
       ),

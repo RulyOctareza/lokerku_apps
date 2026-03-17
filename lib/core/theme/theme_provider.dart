@@ -71,7 +71,7 @@ class ThemeProvider extends ChangeNotifier {
     cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.05),
+      shadowColor: Colors.black.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
 
@@ -166,7 +166,7 @@ class ThemeProvider extends ChangeNotifier {
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const Color(0xFF2BAD7F).withOpacity(0.5);
+          return const Color(0xFF2BAD7F).withValues(alpha: 0.5);
         }
         return const Color(0xFFE5E7EB);
       }),
@@ -222,7 +222,7 @@ class ThemeProvider extends ChangeNotifier {
     cardTheme: CardThemeData(
       color: const Color(0xFF1E1E1E),
       elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.3),
+      shadowColor: Colors.black.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
 
@@ -317,7 +317,7 @@ class ThemeProvider extends ChangeNotifier {
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const Color(0xFF2BAD7F).withOpacity(0.5);
+          return const Color(0xFF2BAD7F).withValues(alpha: 0.5);
         }
         return const Color(0xFF3D3D3D);
       }),

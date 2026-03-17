@@ -194,4 +194,24 @@ class AppPreferences {
   static Future<void> clearAll() async {
     await _prefs?.clear();
   }
+
+  // ==================== REMINDERS ====================
+
+  static String _reminderKey(int jobId) => 'job_reminder_$jobId';
+
+  /// Get reminder timestamp for a job
+  static DateTime? getJobReminder(int jobId) {
+    final iso = _prefs?.getString(_reminderKey(jobId));
+    if (iso == null) return null;
+    return DateTime.tryParse(iso);
+  }
+
+  /// Set reminder timestamp for a job
+  static Future<void> setJobReminder(int jobId, DateTime? value) async {
+    if (value == null) {
+      await _prefs?.remove(_reminderKey(jobId));
+    } else {
+      await _prefs?.setString(_reminderKey(jobId), value.toIso8601String());
+    }
+  }
 }

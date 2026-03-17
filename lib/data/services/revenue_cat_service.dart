@@ -60,7 +60,9 @@ class RevenueCatService {
   /// Purchase a package
   static Future<bool> purchasePackage(Package package) async {
     try {
-      final result = await Purchases.purchasePackage(package);
+      final result = await Purchases.purchase(
+        PurchaseParams.package(package),
+      );
       return result.customerInfo.entitlements.active.containsKey('premium');
     } catch (e) {
       debugPrint('Purchase error: $e');
@@ -121,6 +123,8 @@ class RevenueCatService {
         }
         return false;
       }
+
+      if (!context.mounted) return false;
 
       // Show simple paywall dialog
       final result = await showDialog<bool>(

@@ -150,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                         backgroundImage: photoUrl != null
                             ? NetworkImage(photoUrl)
                             : null,
@@ -192,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       vertical: AppSizes.spacing8,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withOpacity(0.1),
+                      color: AppColors.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
                     ),
                     child: Row(
@@ -222,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       vertical: AppSizes.spacing8,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.textSecondary.withOpacity(0.1),
+                      color: AppColors.textSecondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
                     ),
                     child: Row(

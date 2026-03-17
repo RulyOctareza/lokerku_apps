@@ -25,6 +25,8 @@ class NotificationService {
     // Check current status
     var status = await Permission.notification.status;
 
+    if (!context.mounted) return false;
+
     if (status.isGranted) {
       return true;
     }
@@ -57,9 +59,11 @@ class NotificationService {
 
       // Request permission
       status = await Permission.notification.request();
+      if (!context.mounted) return false;
     }
 
     if (status.isPermanentlyDenied) {
+      if (!context.mounted) return false;
       // Open app settings
       final shouldOpenSettings = await showDialog<bool>(
         context: context,
@@ -129,8 +133,20 @@ class NotificationService {
     debugPrint('Notification: ${message.notification?.title}');
   }
 
+  /// Placeholder for scheduling a reminder (logs for now)
+  Future<void> scheduleJobReminder(
+    int jobId,
+    String title,
+    DateTime scheduledAt,
+  ) async {
+    debugPrint(
+      'Reminder scheduled for job $jobId ("$title") at ${scheduledAt.toIso8601String()}',
+    );
+  }
+
   /// Show notification permission result snackbar
   static void showPermissionResult(BuildContext context, bool granted) {
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

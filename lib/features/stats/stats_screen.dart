@@ -150,7 +150,7 @@ class _StatsScreenState extends State<StatsScreen> {
                               'Periode: $currentMonth',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                   ),
                             ),
                           ],
@@ -205,7 +205,7 @@ class _StatsScreenState extends State<StatsScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.shadow.withOpacity(0.05),
+                                color: AppColors.shadow.withValues(alpha: 0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -290,7 +290,7 @@ class _StatsScreenState extends State<StatsScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.shadow.withOpacity(0.05),
+                                color: AppColors.shadow.withValues(alpha: 0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -319,8 +319,8 @@ class _StatsScreenState extends State<StatsScreen> {
                                       width: 24,
                                       height: 24,
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary.withOpacity(
-                                          0.1,
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.1,
                                         ),
                                         shape: BoxShape.circle,
                                       ),
@@ -417,7 +417,7 @@ class _StatsScreenState extends State<StatsScreen> {
         borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withOpacity(0.05),
+            color: AppColors.shadow.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

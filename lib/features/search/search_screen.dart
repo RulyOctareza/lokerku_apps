@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/models/job_application.dart';
 import '../../data/repositories/job_repository.dart';
 
@@ -20,7 +21,19 @@ class _SearchScreenState extends State<SearchScreen> {
   List<JobApplication> _allJobs = [];
   List<JobApplication> _filteredJobs = [];
   bool _isLoading = true;
-  String _selectedFilter = 'all';
+  final Set<ApplicationStatus> _selectedStatuses = {
+    ApplicationStatus.applied,
+    ApplicationStatus.interviewHR,
+    ApplicationStatus.interviewUser,
+    ApplicationStatus.technicalTest,
+    ApplicationStatus.offering,
+    ApplicationStatus.accepted,
+    ApplicationStatus.rejected,
+    ApplicationStatus.withdrawn,
+  };
+  JobPlatform? _selectedPlatform;
+  DateTime? _updatedAfter;
+  final List<String> _recentQueries = [];
 
   @override
   void initState() {
@@ -48,25 +61,74 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  void _toggleStatus(ApplicationStatus status, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedStatuses.add(status);
+      } else {
+        _selectedStatuses.remove(status);
+      }
+    });
+    _filterJobs(_searchController.text);
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _updatedAfter ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (picked != null) {
+      setState(() => _updatedAfter = picked);
+      _filterJobs(_searchController.text);
+    }
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedStatuses
+        ..clear()
+        ..addAll(ApplicationStatus.values);
+      _selectedPlatform = null;
+      _updatedAfter = null;
+    });
+    _filterJobs(_searchController.text);
+  }
+
+  void _rememberQuery(String query) {
+    final clean = query.trim();
+    if (clean.isEmpty) return;
+
+    setState(() {
+      _recentQueries.remove(clean);
+      _recentQueries.insert(0, clean);
+      if (_recentQueries.length > 3) {
+        _recentQueries.removeLast();
+      }
+    });
+  }
+
   void _filterJobs(String query) {
     setState(() {
-      if (query.isEmpty && _selectedFilter == 'all') {
-        _filteredJobs = _allJobs;
-        return;
-      }
-
+      final normalizedQuery = query.toLowerCase();
       _filteredJobs = _allJobs.where((job) {
-        // Text filter
         final matchesQuery =
-            query.isEmpty ||
-            job.companyName.toLowerCase().contains(query.toLowerCase()) ||
-            job.role.toLowerCase().contains(query.toLowerCase());
+            normalizedQuery.isEmpty ||
+            job.companyName.toLowerCase().contains(normalizedQuery) ||
+            job.role.toLowerCase().contains(normalizedQuery);
 
-        // Status filter
-        final matchesFilter =
-            _selectedFilter == 'all' || job.status.name == _selectedFilter;
+        final matchesStatus =
+            _selectedStatuses.isEmpty || _selectedStatuses.contains(job.status);
 
-        return matchesQuery && matchesFilter;
+        final matchesPlatform =
+            _selectedPlatform == null || job.platform == _selectedPlatform;
+
+        final matchesDate =
+            _updatedAfter == null || job.updatedAt.isAfter(_updatedAfter!);
+
+        return matchesQuery && matchesStatus && matchesPlatform && matchesDate;
       }).toList();
     });
   }
@@ -107,6 +169,10 @@ class _SearchScreenState extends State<SearchScreen> {
             filled: false,
           ),
           onChanged: _filterJobs,
+          onSubmitted: (value) {
+            _rememberQuery(value);
+            _filterJobs(value);
+          },
         ),
         actions: [
           IconButton(
@@ -124,25 +190,88 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       body: Column(
         children: [
-          // Filter chips
-          Container(
-            height: 50,
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSizes.spacing16),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
+            child: Wrap(
+              spacing: AppSizes.spacing8,
+              runSpacing: AppSizes.spacing4,
+              children: ApplicationStatus.values.map((status) {
+                return FilterChip(
+                  label: Text(status.displayName),
+                  selected: _selectedStatuses.contains(status),
+                  onSelected: (selected) => _toggleStatus(status, selected),
+                  selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                  checkmarkColor: AppColors.primary,
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: AppSizes.spacing12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.spacing16),
+            child: Row(
               children: [
-                _buildFilterChip('Semua', 'all'),
-                _buildFilterChip('Applied', 'applied'),
-                _buildFilterChip('Interview', 'interviewHR'),
-                _buildFilterChip('Offering', 'offering'),
-                _buildFilterChip('Accepted', 'accepted'),
-                _buildFilterChip('Rejected', 'rejected'),
+                Expanded(
+                  child: DropdownButtonFormField<JobPlatform?>(
+                    initialValue: _selectedPlatform,
+                    decoration: const InputDecoration(labelText: 'Platform'),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Semua platform'),
+                      ),
+                      ...JobPlatform.values.map(
+                        (platform) => DropdownMenuItem(
+                          value: platform,
+                          child: Text(platform.displayName),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedPlatform = value);
+                      _filterJobs(_searchController.text);
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSizes.spacing8),
+                OutlinedButton(
+                  onPressed: _pickDate,
+                  child: Text(
+                    _updatedAfter != null
+                        ? DateFormatter.toReadableDate(_updatedAfter!)
+                        : 'Semua tanggal',
+                  ),
+                ),
+                const SizedBox(width: AppSizes.spacing8),
+                TextButton(
+                  onPressed: _clearFilters,
+                  child: const Text('Reset'),
+                ),
               ],
             ),
           ),
+          const SizedBox(height: AppSizes.spacing12),
+          if (_recentQueries.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.spacing16,
+              ),
+              child: Wrap(
+                spacing: AppSizes.spacing8,
+                children: _recentQueries
+                    .map(
+                      (query) => ActionChip(
+                        label: Text(query),
+                        onPressed: () {
+                          _searchController.text = query;
+                          _filterJobs(query);
+                        },
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           const Divider(height: 1),
-
-          // Results
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -200,10 +329,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                   horizontal: 8,
                                   vertical: 4,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(
-                                    job.status,
-                                  ).withOpacity(0.1),
+                                 decoration: BoxDecoration(
+                                  color: _getStatusColor(job.status)
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -225,28 +353,6 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _selectedFilter == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSizes.spacing8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          setState(() {
-            _selectedFilter = selected ? value : 'all';
-            _filterJobs(_searchController.text);
-          });
-        },
-        selectedColor: AppColors.primary.withOpacity(0.2),
-        checkmarkColor: AppColors.primary,
-        labelStyle: TextStyle(
-          color: isSelected ? AppColors.primary : AppColors.textSecondary,
-        ),
       ),
     );
   }

@@ -89,6 +89,12 @@ class AppStrings {
   static const String detailTitle = 'Detail Lamaran';
   static const String updateStatus = 'Update Status';
   static const String timelineTitle = 'Timeline Status';
+  static const String reminderTitle = 'Pengingat';
+  static const String reminderNone = 'Belum ada pengingat';
+  static const String reminderSaved = 'Pengingat berhasil disimpan';
+  static const String reminderCleared = 'Pengingat dibatalkan';
+  static const String reminderAddAction = 'Tambahkan pengingat';
+  static const String reminderEditAction = 'Ubah pengingat';
 
   // Templates
   static const String templatesTitle = 'Templates';

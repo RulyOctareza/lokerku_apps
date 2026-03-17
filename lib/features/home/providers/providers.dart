@@ -189,45 +189,81 @@ final hasCompletedOnboardingProvider = FutureProvider<bool>((ref) async {
 
 // ==================== SYNC PROVIDERS ====================
 
-/// Sync state notifier
-class SyncNotifier extends StateNotifier<AsyncValue<void>> {
-  SyncNotifier() : super(const AsyncValue.data(null));
+class SyncState {
+  final bool isSyncing;
+  final DateTime? lastSyncedAt;
+  final String? message;
 
-  Future<void> syncAll() async {
-    state = const AsyncValue.loading();
-    try {
-      await SyncService.fullSync();
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
+  const SyncState({required this.isSyncing, this.lastSyncedAt, this.message});
 
-  Future<void> syncToCloud() async {
-    state = const AsyncValue.loading();
-    try {
-      await SyncService.syncToCloud();
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
+  factory SyncState.initial() =>
+      const SyncState(isSyncing: false, message: 'Belum ada sinkronisasi');
 
-  Future<void> syncFromCloud() async {
-    state = const AsyncValue.loading();
-    try {
-      await SyncService.syncFromCloud();
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+  SyncState copyWith({
+    bool? isSyncing,
+    DateTime? lastSyncedAt,
+    String? message,
+  }) {
+    return SyncState(
+      isSyncing: isSyncing ?? this.isSyncing,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      message: message ?? this.message,
+    );
   }
 }
 
-final syncProvider = StateNotifierProvider<SyncNotifier, AsyncValue<void>>((
-  ref,
-) {
+class SyncNotifier extends StateNotifier<SyncState> {
+  SyncNotifier() : super(SyncState.initial());
+
+  Future<void> _performSync(
+    Future<void> Function() syncAction,
+    String successMessage,
+  ) async {
+    state = state.copyWith(isSyncing: true, message: 'Menyinkronkan...');
+    try {
+      await syncAction();
+      state = state.copyWith(
+        isSyncing: false,
+        lastSyncedAt: DateTime.now(),
+        message: successMessage,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isSyncing: false,
+        message: 'Sinkronisasi gagal: $e',
+      );
+    }
+  }
+
+  Future<void> syncAll() async {
+    await _performSync(
+      () => SyncService.fullSync(),
+      'Sinkronisasi cloud terbaru selesai',
+    );
+  }
+
+  Future<void> syncToCloud() async {
+    await _performSync(
+      () => SyncService.syncToCloud(),
+      'Data berhasil disinkronkan ke cloud',
+    );
+  }
+
+  Future<void> syncFromCloud() async {
+    await _performSync(
+      () => SyncService.syncFromCloud(),
+      'Data cloud berhasil diunduh',
+    );
+  }
+}
+
+final syncProvider = StateNotifierProvider<SyncNotifier, SyncState>((ref) {
   return SyncNotifier();
+});
+
+final unsyncedCountProvider = FutureProvider<int>((ref) async {
+  final jobs = await JobRepository.getUnsynced();
+  return jobs.length;
 });
 
 /// Connectivity status provider

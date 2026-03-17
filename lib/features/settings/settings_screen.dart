@@ -226,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -241,7 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       radius: 32,
                       backgroundColor: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(0.1),
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       backgroundImage: photoUrl != null
                           ? NetworkImage(photoUrl)
                           : null,
@@ -278,7 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.textSecondary.withOpacity(0.1),
+                              color: AppColors.textSecondary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -322,7 +322,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   vertical: AppSizes.spacing4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.1),
+                  color: AppColors.secondary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
                 ),
                 child: Text(
@@ -552,16 +552,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               try {
                 await JobRepository.deleteAll();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Semua data telah dihapus'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  _loadStorageSize();
-                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Semua data aplikasi berhasil dihapus'),
+                  ),
+                );
+                _loadStorageSize();
               } catch (e) {
+                if (!mounted) return;
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -612,10 +611,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await AuthService.signOut();
                 await AppPreferences.clearUserData();
 
-                if (mounted) {
-                  context.go(AppRouter.login);
-                }
+                if (!context.mounted) return;
+                context.go(AppRouter.login);
               } catch (e) {
+                if (!mounted) return;
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

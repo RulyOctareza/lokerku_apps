@@ -100,8 +100,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.primary.withOpacity(
-                                isDarkMode ? 0.4 : 0.3,
+                              color: colorScheme.primary.withValues(
+                                alpha: isDarkMode ? 0.4 : 0.3,
                               ),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
@@ -132,16 +132,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 160,
                         decoration: BoxDecoration(
                           color: isDarkMode
-                              ? colorScheme.primary.withOpacity(0.2)
-                              : colorScheme.primary.withOpacity(0.1),
+                              ? colorScheme.primary.withValues(alpha: 0.2)
+                              : colorScheme.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.person_pin_rounded,
                           size: 80,
                           color: isDarkMode
-                              ? colorScheme.primary.withOpacity(0.8)
-                              : colorScheme.primary.withOpacity(0.7),
+                              ? colorScheme.primary.withValues(alpha: 0.8)
+                              : colorScheme.primary.withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: AppSizes.spacing24),
@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         AppStrings.loginSubtitle,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.7),
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
 
@@ -199,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               vertical: AppSizes.spacing16,
                             ),
                             side: BorderSide(
-                              color: colorScheme.primary.withOpacity(0.5),
+                              color: colorScheme.primary.withValues(alpha: 0.5),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
@@ -229,8 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               AppStrings.guestModeNote,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface.withOpacity(
-                                  0.5,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
                                 ),
                               ),
                             ),
@@ -245,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         AppStrings.termsAgreement,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.5),
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ],

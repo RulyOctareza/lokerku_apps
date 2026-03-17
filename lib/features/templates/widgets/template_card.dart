@@ -47,8 +47,8 @@ class TemplateCard extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: data.isPremium
-                      ? AppColors.secondary.withOpacity(0.1)
-                      : AppColors.primary.withOpacity(0.1),
+                      ? AppColors.secondary.withValues(alpha: 0.1)
+                      : AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
                 ),
                 child: Icon(
@@ -78,6 +78,30 @@ class TemplateCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (data.isPremium)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSizes.spacing4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(
+                              AppSizes.radiusSmall,
+                            ),
+                          ),
+                          child: Text(
+                            'Premium',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: AppColors.secondary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
