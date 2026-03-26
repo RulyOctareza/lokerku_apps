@@ -219,6 +219,22 @@ class SyncNotifier extends StateNotifier<SyncState> {
     Future<void> Function() syncAction,
     String successMessage,
   ) async {
+    if (!AuthService.isLoggedIn) {
+      state = state.copyWith(
+        isSyncing: false,
+        message: 'Masuk untuk mengaktifkan sinkronisasi cloud',
+      );
+      return;
+    }
+
+    if (!await SyncService.isOnline()) {
+      state = state.copyWith(
+        isSyncing: false,
+        message: 'Perangkat offline. Sinkronisasi ditunda',
+      );
+      return;
+    }
+
     state = state.copyWith(isSyncing: true, message: 'Menyinkronkan...');
     try {
       await syncAction();

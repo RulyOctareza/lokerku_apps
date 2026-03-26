@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:io';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
@@ -15,6 +16,7 @@ import 'widgets/stats_card.dart';
 import 'widgets/job_card.dart';
 import 'widgets/sync_status_indicator.dart';
 import '../add_job/add_job_sheet.dart';
+import 'widgets/recent_applications_header.dart';
 
 /// Home Screen - Dashboard
 /// Shows stats summary and recent job applications
@@ -109,6 +111,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  ImageProvider<Object>? _buildPhotoProvider(String? photoUrl) {
+    final normalized = photoUrl?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(normalized);
+    }
+
+    final file = File(normalized);
+    if (!file.existsSync()) {
+      return null;
+    }
+
+    return FileImage(file);
+  }
+
   Future<void> _deleteSelected() async {
     if (_selectedIds.isEmpty) return;
 
@@ -134,19 +154,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     if (confirm == true) {
-      for (final id in _selectedIds) {
-        await JobRepository.delete(id);
-      }
-      setState(() {
-        _isMultiSelectMode = false;
-        _selectedIds.clear();
-      });
-      _loadData();
-      if (mounted) {
+      try {
+        for (final id in _selectedIds) {
+          await JobRepository.delete(id);
+        }
+        if (!mounted) return;
+        setState(() {
+          _isMultiSelectMode = false;
+          _selectedIds.clear();
+        });
+        _loadData();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Lamaran berhasil dihapus'),
             backgroundColor: AppColors.success,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menghapus lamaran: ${e.toString()}'),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -157,9 +186,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final userName =
         AppPreferences.userDisplayName ?? AuthService.displayName ?? 'User';
+    final photoProvider = _buildPhotoProvider(
+      AppPreferences.userPhotoUrl ?? AuthService.photoUrl,
+    );
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadData,
@@ -176,16 +208,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onTap: () => context.push(AppRouter.profile),
                         child: CircleAvatar(
                           radius: 24,
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                          backgroundImage: AuthService.photoUrl != null
-                              ? NetworkImage(AuthService.photoUrl!)
-                              : null,
-                          child: AuthService.photoUrl == null
-                              ? const Icon(
-                                  Icons.person,
-                                  color: AppColors.primary,
-                                )
-                              : null,
+                          backgroundColor: AppColors.primary.withValues(
+                            alpha: 0.1,
+                          ),
+                          foregroundImage: photoProvider,
+                          onForegroundImageError: photoProvider == null
+                              ? null
+                              : (_, __) {},
+                          child: const Icon(
+                            Icons.person,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSizes.spacing12),
@@ -216,14 +249,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       IconButton(
                         onPressed: () async {
-                          final notificationService = NotificationService();
-                          final granted = await notificationService
-                              .requestPermission(context);
-                          if (!context.mounted) return;
-                          NotificationService.showPermissionResult(
-                            context,
-                            granted,
-                          );
+                          try {
+                            final notificationService = NotificationService();
+                            final granted = await notificationService
+                                .requestPermission(context);
+                            if (!context.mounted) return;
+                            NotificationService.showPermissionResult(
+                              context,
+                              granted,
+                            );
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Gagal membuka izin notifikasi: ${e.toString()}',
+                                ),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
                         },
                         icon: const Icon(Icons.notifications_outlined),
                       ),
@@ -247,35 +292,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSizes.spacing16,
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: StatsCard(
-                          title: 'Total',
-                          value: _totalCount.toString(),
-                          subtitle: 'Lamaran',
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: AppSizes.spacing12),
-                      Expanded(
-                        child: StatsCard(
-                          title: 'Menunggu',
-                          value: _pendingCount.toString(),
-                          subtitle: 'Proses',
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: AppSizes.spacing12),
-                      Expanded(
-                        child: StatsCard(
-                          title: 'Interview',
-                          value: _interviewCount.toString(),
-                          subtitle: 'Jadwal',
-                          color: AppColors.secondary,
-                        ),
-                      ),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 360;
+                      const spacing = AppSizes.spacing12;
+                      final itemWidth = isCompact
+                          ? (constraints.maxWidth - spacing) / 2
+                          : (constraints.maxWidth - (spacing * 2)) / 3;
+
+                      return Wrap(
+                        spacing: spacing,
+                        runSpacing: spacing,
+                        children: [
+                          SizedBox(
+                            width: itemWidth,
+                            child: StatsCard(
+                              title: 'Total',
+                              value: _totalCount.toString(),
+                              subtitle: 'Lamaran',
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(
+                            width: itemWidth,
+                            child: StatsCard(
+                              title: 'Menunggu',
+                              value: _pendingCount.toString(),
+                              subtitle: 'Proses',
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          SizedBox(
+                            width: itemWidth,
+                            child: StatsCard(
+                              title: 'Interview',
+                              value: _interviewCount.toString(),
+                              subtitle: 'Jadwal',
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -319,30 +377,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               // Section Header
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSizes.spacing16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        AppStrings.homeRecentApplications,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          // TODO: Navigate to all applications
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Fitur lihat semua akan segera hadir',
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text(AppStrings.homeViewAll),
-                      ),
-                    ],
-                  ),
+                child: RecentApplicationsHeader(
+                  onViewAll: () => context.go(AppRouter.search),
                 ),
               ),
 
@@ -455,8 +491,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           },
                           onDismissed: (direction) async {
                             if (direction == DismissDirection.endToStart) {
-                              await JobRepository.delete(job.id);
-                              _loadData();
+                              try {
+                                await JobRepository.delete(job.id);
+                                if (!mounted) return;
+                                _loadData();
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Gagal menghapus lamaran: ${e.toString()}',
+                                    ),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
                             }
                           },
                           child: GestureDetector(
@@ -542,6 +591,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             backgroundColor: Colors.transparent,
             builder: (context) => const AddJobSheet(),
           );
+          if (!mounted) return;
           _loadData();
         },
         child: const Icon(Icons.add),

@@ -1,33 +1,53 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/services/auth_service.dart';
 import '../providers/providers.dart';
 
 /// Displays connectivity, sync status, and a manual sync action.
 class SyncStatusIndicator extends ConsumerWidget {
-  const SyncStatusIndicator({super.key});
+  final bool? isLoggedInOverride;
+
+  const SyncStatusIndicator({super.key, this.isLoggedInOverride});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final syncState = ref.watch(syncProvider);
     final connectivity = ref.watch(connectivityProvider);
     final unsynced = ref.watch(unsyncedCountProvider);
+    final theme = Theme.of(context);
+    final isLoggedIn = isLoggedInOverride ?? AuthService.isLoggedIn;
 
-    final isOnline = connectivity.asData?.value != ConnectivityResult.none;
-    final statusText = syncState.lastSyncedAt != null
+    final connectivityValue = connectivity.asData?.value;
+    final isOnline = connectivityValue == null
+        ? null
+        : connectivityValue != ConnectivityResult.none;
+    final statusText = !isLoggedIn
+        ? 'Masuk untuk mengaktifkan sinkronisasi cloud'
+        : syncState.lastSyncedAt != null
         ? 'Terakhir sync ${DateFormatter.toRelativeTime(syncState.lastSyncedAt!)}'
-        : syncState.message;
+        : (isOnline == null
+              ? 'Memeriksa status sinkron...'
+              : syncState.message);
 
-    final unsyncedText = unsynced.maybeWhen(
-      data: (count) => count > 0 ? '$count belum sinkron' : null,
-      orElse: () => null,
-    );
+    final unsyncedText = !isLoggedIn
+        ? null
+        : unsynced.maybeWhen(
+            data: (count) => count > 0 ? '$count belum sinkron' : null,
+            orElse: () => null,
+          );
 
-    final statusColor = isOnline ? AppColors.success : AppColors.error;
+    final statusColor = !isLoggedIn
+        ? AppColors.secondary
+        : isOnline == null
+        ? AppColors.textSecondary
+        : (isOnline ? AppColors.success : AppColors.error);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: AppSizes.spacing12),
@@ -36,9 +56,9 @@ class SyncStatusIndicator extends ConsumerWidget {
         vertical: AppSizes.spacing12,
       ),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,7 +66,11 @@ class SyncStatusIndicator extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                isOnline ? Icons.cloud_done : Icons.cloud_off,
+                !isLoggedIn
+                    ? Icons.lock_outline
+                    : isOnline == null
+                    ? Icons.cloud_queue
+                    : (isOnline ? Icons.cloud_done : Icons.cloud_off),
                 color: statusColor,
                 size: 20,
               ),
@@ -55,7 +79,7 @@ class SyncStatusIndicator extends ConsumerWidget {
                 child: Text(
                   statusText ?? 'Menunggu status sinkron',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: theme.textTheme.bodyMedium?.color,
                   ),
                 ),
               ),
@@ -91,12 +115,24 @@ class SyncStatusIndicator extends ConsumerWidget {
                 TextButton(
                   onPressed: syncState.isSyncing
                       ? null
-                      : () => ref.read(syncProvider.notifier).syncToCloud(),
-                  child: const Text('Sinkron sekarang'),
+                      : () {
+                          if (!isLoggedIn) {
+                            context.go(AppRouter.login);
+                            return;
+                          }
+                          ref.read(syncProvider.notifier).syncToCloud();
+                        },
+                  child: Text(
+                    isLoggedIn ? 'Sinkron sekarang' : 'Masuk untuk sync',
+                  ),
                 ),
                 const SizedBox(width: AppSizes.spacing12),
                 Text(
-                  isOnline ? 'Terhubung' : 'Offline',
+                  !isLoggedIn
+                      ? 'Mode lokal'
+                      : isOnline == null
+                      ? 'Memeriksa jaringan'
+                      : (isOnline ? 'Terhubung' : 'Offline'),
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: statusColor),

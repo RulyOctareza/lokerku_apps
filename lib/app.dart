@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'core/theme/theme_provider.dart';
 import 'core/router/app_router.dart';
@@ -56,6 +57,22 @@ class _LokerKuAppState extends State<LokerKuApp> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = _themeProvider.isDarkMode;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDarkMode
+            ? Brightness.light
+            : Brightness.dark,
+        systemNavigationBarColor: isDarkMode
+            ? const Color(0xFF121212)
+            : Colors.white,
+        systemNavigationBarIconBrightness: isDarkMode
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+    );
+
     return MaterialApp.router(
       title: 'LokerKu',
       debugShowCheckedModeBanner: false,

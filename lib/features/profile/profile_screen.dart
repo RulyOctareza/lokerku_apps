@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
@@ -8,7 +11,9 @@ import '../../data/services/auth_service.dart';
 /// Profile Screen
 /// Display and edit user profile information
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final Future<String?> Function()? imagePickerAction;
+
+  const ProfileScreen({super.key, this.imagePickerAction});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -22,10 +27,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _ageController = TextEditingController();
 
   String? _selectedGender;
+  String? _photoPath;
   bool _isLoading = false;
   bool _isEditing = false;
 
   final List<String> _genders = ['Laki-laki', 'Perempuan', 'Lainnya'];
+
+  ImageProvider<Object>? _buildPhotoProvider(String? photoUrl) {
+    final normalized = photoUrl?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(normalized);
+    }
+
+    final file = File(normalized);
+    if (!file.existsSync()) {
+      return null;
+    }
+
+    return FileImage(file);
+  }
 
   @override
   void initState() {
@@ -44,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _ageController.text = age != null ? age.toString() : '';
 
     _selectedGender = AppPreferences.userGender;
+    _photoPath = AppPreferences.userPhotoUrl ?? AuthService.photoUrl;
   }
 
   @override
@@ -53,6 +78,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _whatsappController.dispose();
     _ageController.dispose();
     super.dispose();
+  }
+
+  Future<String?> _pickProfileImage() async {
+    final picker = widget.imagePickerAction ?? _defaultImagePicker;
+    return picker();
+  }
+
+  Future<String?> _defaultImagePicker() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      imageQuality: 85,
+    );
+    return file?.path;
+  }
+
+  Future<void> _selectPhoto() async {
+    if (!_isEditing || _isLoading) return;
+
+    try {
+      final path = await _pickProfileImage();
+      if (!mounted || path == null || path.trim().isEmpty) return;
+
+      setState(() {
+        _photoPath = path;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memilih foto: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -68,6 +129,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           await AppPreferences.setUserEmail(_emailController.text.trim());
         }
         await AppPreferences.setUserWhatsapp(_whatsappController.text.trim());
+        await AppPreferences.setUserPhotoUrl(_photoPath);
 
         final age = int.tryParse(_ageController.text.trim());
         await AppPreferences.setUserAge(age);
@@ -107,13 +169,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = AuthService.isLoggedIn;
-    final photoUrl = AppPreferences.userPhotoUrl ?? AuthService.photoUrl;
+    final photoProvider = _buildPhotoProvider(_photoPath);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Profil'),
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         actions: [
           if (!_isEditing)
             IconButton(
@@ -137,191 +199,209 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.spacing16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                // Avatar
-                Center(
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                        backgroundImage: photoUrl != null
-                            ? NetworkImage(photoUrl)
-                            : null,
-                        child: photoUrl == null
-                            ? const Icon(
-                                Icons.person,
-                                size: 50,
-                                color: AppColors.primary,
-                              )
-                            : null,
-                      ),
-                      if (_isEditing)
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.spacing16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // Avatar
+                  Center(
+                    child: Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: _isEditing ? _selectPhoto : null,
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.1,
                             ),
+                            foregroundImage: photoProvider,
+                            onForegroundImageError: photoProvider == null
+                                ? null
+                                : (_, __) {},
                             child: const Icon(
-                              Icons.camera_alt,
-                              size: 16,
-                              color: Colors.white,
+                              Icons.person,
+                              size: 50,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSizes.spacing24),
-
-                // Login status badge
-                if (isLoggedIn)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.spacing12,
-                      vertical: AppSizes.spacing8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.check_circle,
-                          size: 16,
-                          color: AppColors.success,
-                        ),
-                        const SizedBox(width: AppSizes.spacing8),
-                        Text(
-                          'Login dengan Google',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: AppColors.success,
-                                fontWeight: FontWeight.w500,
+                        if (_isEditing)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _selectPhoto,
+                                customBorder: const CircleBorder(),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.spacing12,
-                      vertical: AppSizes.spacing8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.textSecondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.person_outline,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: AppSizes.spacing8),
-                        Text(
-                          'Mode Tamu',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                        ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                const SizedBox(height: AppSizes.spacing24),
+                  const SizedBox(height: AppSizes.spacing24),
 
-                // Name Field
-                _buildTextField(
-                  controller: _nameController,
-                  label: 'Nama',
-                  hint: 'Masukkan nama Anda',
-                  enabled: _isEditing,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Nama wajib diisi';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Email Field
-                _buildTextField(
-                  controller: _emailController,
-                  label: 'Email',
-                  hint: 'Masukkan email Anda',
-                  enabled: _isEditing && !isLoggedIn,
-                  keyboardType: TextInputType.emailAddress,
-                  helperText: isLoggedIn ? 'Email dari akun Google' : null,
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // WhatsApp Field
-                _buildTextField(
-                  controller: _whatsappController,
-                  label: 'Nomor WhatsApp',
-                  hint: 'Contoh: 08123456789',
-                  enabled: _isEditing,
-                  keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Age Field
-                _buildTextField(
-                  controller: _ageController,
-                  label: 'Usia',
-                  hint: 'Contoh: 25',
-                  enabled: _isEditing,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Gender Dropdown
-                _buildDropdownField(
-                  label: 'Jenis Kelamin',
-                  value: _selectedGender,
-                  items: _genders,
-                  enabled: _isEditing,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedGender = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: AppSizes.spacing32),
-
-                // Cancel button when editing
-                if (_isEditing)
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        setState(() {
-                          _isEditing = false;
-                          _loadUserData(); // Reset changes
-                        });
-                      },
-                      child: const Text('Batal'),
+                  // Login status badge
+                  if (isLoggedIn)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.spacing12,
+                        vertical: AppSizes.spacing8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.radiusSmall,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(width: AppSizes.spacing8),
+                          Text(
+                            'Login dengan Google',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppColors.success,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.spacing12,
+                        vertical: AppSizes.spacing8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.textSecondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.radiusSmall,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.person_outline,
+                            size: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: AppSizes.spacing8),
+                          Text(
+                            'Mode Tamu',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
+                  const SizedBox(height: AppSizes.spacing24),
+
+                  // Name Field
+                  _buildTextField(
+                    controller: _nameController,
+                    label: 'Nama',
+                    hint: 'Masukkan nama Anda',
+                    enabled: _isEditing,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Nama wajib diisi';
+                      }
+                      return null;
+                    },
                   ),
-              ],
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Email Field
+                  _buildTextField(
+                    controller: _emailController,
+                    label: 'Email',
+                    hint: 'Masukkan email Anda',
+                    enabled: _isEditing && !isLoggedIn,
+                    keyboardType: TextInputType.emailAddress,
+                    helperText: isLoggedIn ? 'Email dari akun Google' : null,
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // WhatsApp Field
+                  _buildTextField(
+                    controller: _whatsappController,
+                    label: 'Nomor WhatsApp',
+                    hint: 'Contoh: 08123456789',
+                    enabled: _isEditing,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Age Field
+                  _buildTextField(
+                    controller: _ageController,
+                    label: 'Usia',
+                    hint: 'Contoh: 25',
+                    enabled: _isEditing,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Gender Dropdown
+                  _buildDropdownField(
+                    label: 'Jenis Kelamin',
+                    value: _selectedGender,
+                    items: _genders,
+                    enabled: _isEditing,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedGender = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: AppSizes.spacing32),
+
+                  // Cancel button when editing
+                  if (_isEditing)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isEditing = false;
+                            _loadUserData(); // Reset changes
+                          });
+                        },
+                        child: const Text('Batal'),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -351,7 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             hintText: hint,
             helperText: helperText,
             filled: !enabled,
-            fillColor: enabled ? null : AppColors.surface,
+            fillColor: enabled ? null : Theme.of(context).colorScheme.surface,
           ),
           validator: validator,
         ),
@@ -375,7 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           initialValue: value,
           decoration: InputDecoration(
             filled: !enabled,
-            fillColor: enabled ? null : AppColors.surface,
+            fillColor: enabled ? null : Theme.of(context).colorScheme.surface,
           ),
           items: items.map((item) {
             return DropdownMenuItem(value: item, child: Text(item));

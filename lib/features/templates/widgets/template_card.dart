@@ -27,8 +27,9 @@ class TemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Material(
-      color: AppColors.surface,
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
       child: InkWell(
         onTap: onTap,
@@ -37,7 +38,7 @@ class TemplateCard extends StatelessWidget {
           padding: const EdgeInsets.all(AppSizes.spacing16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: theme.dividerColor),
           ),
           child: Row(
             children: [

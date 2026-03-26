@@ -12,7 +12,14 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  FirebaseMessaging? get _firebaseMessaging {
+    try {
+      return FirebaseMessaging.instance;
+    } catch (e) {
+      debugPrint('Firebase Messaging unavailable: $e');
+      return null;
+    }
+  }
 
   /// Check if notification permission is granted
   Future<bool> isPermissionGranted() async {
@@ -98,33 +105,36 @@ class NotificationService {
 
   /// Initialize Firebase Messaging
   Future<void> initialize() async {
+    final messaging = _firebaseMessaging;
+    if (messaging == null) return;
+
     // Request FCM permission (for iOS)
-    await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
 
-    // Get FCM token
-    final token = await _firebaseMessaging.getToken();
-    debugPrint('FCM Token: $token');
+      // Get FCM token
+      final token = await messaging.getToken();
+      debugPrint('FCM Token: $token');
 
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Got a message whilst in the foreground!');
-      debugPrint('Message data: ${message.data}');
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('Got a message whilst in the foreground!');
+        debugPrint('Message data: ${message.data}');
 
-      if (message.notification != null) {
-        debugPrint('Message notification: ${message.notification}');
-        _showLocalNotification(message);
-      }
-    });
+        if (message.notification != null) {
+          debugPrint('Message notification: ${message.notification}');
+          _showLocalNotification(message);
+        }
+      });
 
-    // Handle background message tap
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('Message opened app: ${message.data}');
-      // Navigate based on message data if needed
-    });
+      // Handle background message tap
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('Message opened app: ${message.data}');
+        // Navigate based on message data if needed
+      });
+    } catch (e) {
+      debugPrint('Notification initialization failed: $e');
+    }
   }
 
   void _showLocalNotification(RemoteMessage message) {

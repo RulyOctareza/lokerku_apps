@@ -26,7 +26,9 @@ void main() {
           ),
           unsyncedCountProvider.overrideWith((ref) => 0),
         ],
-        child: const MaterialApp(home: Scaffold(body: SyncStatusIndicator())),
+        child: const MaterialApp(
+          home: Scaffold(body: SyncStatusIndicator(isLoggedInOverride: true)),
+        ),
       ),
     );
 
@@ -55,7 +57,9 @@ void main() {
           ),
           unsyncedCountProvider.overrideWith((ref) => 3),
         ],
-        child: const MaterialApp(home: Scaffold(body: SyncStatusIndicator())),
+        child: const MaterialApp(
+          home: Scaffold(body: SyncStatusIndicator(isLoggedInOverride: true)),
+        ),
       ),
     );
 
@@ -63,5 +67,68 @@ void main() {
 
     expect(find.text('Offline'), findsOneWidget);
     expect(find.textContaining('3 belum sinkron'), findsOneWidget);
+  });
+
+  testWidgets('shows checking state before connectivity is known', (
+    WidgetTester tester,
+  ) async {
+    final notifier = SyncNotifier();
+    notifier.state = const SyncState(
+      isSyncing: false,
+      message: 'Belum ada sinkronisasi',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          syncProvider.overrideWith((ref) => notifier),
+          connectivityProvider.overrideWith(
+            (ref) => const Stream<ConnectivityResult>.empty(),
+          ),
+          unsyncedCountProvider.overrideWith((ref) => 0),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: SyncStatusIndicator(isLoggedInOverride: true)),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.text('Memeriksa jaringan'), findsOneWidget);
+    expect(find.textContaining('Memeriksa status sinkron'), findsOneWidget);
+  });
+
+  testWidgets('shows login CTA for guest users', (WidgetTester tester) async {
+    final notifier = SyncNotifier();
+    notifier.state = const SyncState(
+      isSyncing: false,
+      message: 'Belum ada sinkronisasi',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          syncProvider.overrideWith((ref) => notifier),
+          connectivityProvider.overrideWith(
+            (ref) => Stream.value(ConnectivityResult.wifi),
+          ),
+          unsyncedCountProvider.overrideWith((ref) => 3),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: SyncStatusIndicator(isLoggedInOverride: false)),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Masuk untuk sync'), findsOneWidget);
+    expect(find.text('Mode lokal'), findsOneWidget);
+    expect(
+      find.textContaining('mengaktifkan sinkronisasi cloud'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('belum sinkron'), findsNothing);
   });
 }

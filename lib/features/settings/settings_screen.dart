@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,12 +15,22 @@ import '../../data/services/auth_service.dart';
 import '../../data/services/isar_service.dart';
 import '../../data/services/revenue_cat_service.dart';
 import '../../data/services/export_service.dart';
+import '../../data/services/sync_service.dart';
 import '../../app.dart';
 
 /// Settings Screen
 /// App settings, account management, and preferences
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final Future<int> Function()? storageSizeLoader;
+  final Future<bool> Function()? onlineChecker;
+  final Future<void> Function()? syncAction;
+
+  const SettingsScreen({
+    super.key,
+    this.storageSizeLoader,
+    this.onlineChecker,
+    this.syncAction,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -31,6 +43,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _storageSize = '0 KB';
   bool _isLoading = false;
 
+  ImageProvider<Object>? _buildPhotoProvider(String? photoUrl) {
+    final normalized = photoUrl?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(normalized);
+    }
+
+    final file = File(normalized);
+    if (!file.existsSync()) {
+      return null;
+    }
+
+    return FileImage(file);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,8 +71,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadStorageSize() async {
     try {
-      final isar = await IsarService.db;
-      final sizeBytes = await isar.getSize();
+      final sizeBytes = await _getStorageSize();
+      if (!mounted) return;
       setState(() {
         if (sizeBytes < 1024) {
           _storageSize = '$sizeBytes B';
@@ -53,9 +83,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _storageSize = 'N/A';
       });
+    }
+  }
+
+  Future<int> _getStorageSize() async {
+    if (widget.storageSizeLoader != null) {
+      return widget.storageSizeLoader!();
+    }
+
+    final isar = await IsarService.db;
+    return isar.getSize();
+  }
+
+  Future<bool> _isOnline() async {
+    return widget.onlineChecker?.call() ?? SyncService.isOnline();
+  }
+
+  Future<void> _syncNow() async {
+    final isLoggedIn = AuthService.isLoggedIn;
+    if (!isLoggedIn) {
+      context.go(AppRouter.login);
+      return;
+    }
+
+    if (!await _isOnline()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Perangkat sedang offline. Coba lagi saat terhubung.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await (widget.syncAction?.call() ?? SyncService.fullSync());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sinkronisasi berhasil'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sinkronisasi gagal: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -204,6 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final userEmail =
         AppPreferences.userEmail ?? AuthService.email ?? 'Mode Tamu';
     final photoUrl = AppPreferences.userPhotoUrl ?? AuthService.photoUrl;
+    final photoProvider = _buildPhotoProvider(photoUrl);
     final isLoggedIn = AuthService.isLoggedIn;
     final isGuestMode = AppPreferences.isGuestMode;
     final currentLanguage = AppPreferences.language == 'id'
@@ -213,62 +301,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text(AppStrings.settingsTitle)),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile Card
-            Container(
-              margin: const EdgeInsets.all(AppSizes.spacing16),
-              padding: const EdgeInsets.all(AppSizes.spacing16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Avatar
-                  GestureDetector(
-                    onTap: () => context.push(AppRouter.profile),
-                    child: CircleAvatar(
-                      radius: 32,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.1),
-                      backgroundImage: photoUrl != null
-                          ? NetworkImage(photoUrl)
-                          : null,
-                      child: photoUrl == null
-                          ? Icon(
-                              Icons.person,
-                              size: 32,
-                              color: Theme.of(context).colorScheme.primary,
-                            )
-                          : null,
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Profile Card
+              Container(
+                margin: const EdgeInsets.all(AppSizes.spacing16),
+                padding: const EdgeInsets.all(AppSizes.spacing16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  const SizedBox(width: AppSizes.spacing16),
-
-                  // User Info
-                  Expanded(
-                    child: Column(
+                  ],
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 360;
+                    final avatar = GestureDetector(
+                      onTap: () => context.push(AppRouter.profile),
+                      child: CircleAvatar(
+                        radius: 32,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                        foregroundImage: photoProvider,
+                        onForegroundImageError: photoProvider == null
+                            ? null
+                            : (_, __) {},
+                        child: Icon(
+                          Icons.person,
+                          size: 32,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    );
+                    final userInfo = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           userName,
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           userEmail,
                           style: Theme.of(context).textTheme.bodySmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         if (!isLoggedIn && isGuestMode)
                           Container(
@@ -278,7 +367,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.textSecondary.withValues(alpha: 0.1),
+                              color: AppColors.textSecondary.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -288,202 +379,219 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ),
                       ],
+                    );
+                    final editButton = TextButton(
+                      onPressed: () => context.push(AppRouter.profile),
+                      child: const Text(AppStrings.editProfile),
+                    );
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              avatar,
+                              const SizedBox(width: AppSizes.spacing16),
+                              Expanded(child: userInfo),
+                            ],
+                          ),
+                          const SizedBox(height: AppSizes.spacing12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: editButton,
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        avatar,
+                        const SizedBox(width: AppSizes.spacing16),
+                        Expanded(child: userInfo),
+                        editButton,
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+              // Account Section
+              _buildSectionHeader(context, AppStrings.settingsAccount),
+              _buildSettingsTile(
+                context,
+                icon: Icons.person_outline,
+                title: AppStrings.settingsProfile,
+                onTap: () => context.push(AppRouter.profile),
+              ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.workspace_premium,
+                title: AppStrings.settingsPremium,
+                subtitle: 'Free',
+                onTap: () async {
+                  await RevenueCatService.showPaywall(context);
+                },
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.spacing8,
+                    vertical: AppSizes.spacing4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
+                  ),
+                  child: Text(
+                    'Upgrade',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+              ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.sync,
+                title: AppStrings.settingsSync,
+                subtitle: isLoggedIn
+                    ? 'Sinkronkan data ke cloud'
+                    : 'Login diperlukan untuk sync cloud',
+                trailing: Icon(
+                  isLoggedIn ? Icons.check_circle : Icons.cloud_off,
+                  color: isLoggedIn
+                      ? AppColors.success
+                      : AppColors.textTertiary,
+                  size: 20,
+                ),
+                onTap: _isLoading ? () {} : _syncNow,
+              ),
 
-                  // Edit Button
-                  TextButton(
-                    onPressed: () => context.push(AppRouter.profile),
-                    child: const Text(AppStrings.editProfile),
-                  ),
-                ],
+              // App Section
+              _buildSectionHeader(context, AppStrings.settingsApp),
+              _buildSettingsTile(
+                context,
+                icon: Icons.dark_mode_outlined,
+                title: AppStrings.settingsDarkMode,
+                trailing: Switch(
+                  value: _isDarkMode,
+                  onChanged: _toggleDarkMode,
+                  activeThumbColor: AppColors.primary,
+                ),
+                onTap: () => _toggleDarkMode(!_isDarkMode),
               ),
-            ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.notifications_outlined,
+                title: AppStrings.settingsNotification,
+                trailing: Switch(
+                  value: _isNotificationEnabled,
+                  onChanged: _toggleNotifications,
+                  activeThumbColor: AppColors.primary,
+                ),
+                onTap: () => _toggleNotifications(!_isNotificationEnabled),
+              ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.language,
+                title: AppStrings.settingsLanguage,
+                subtitle: currentLanguage,
+                onTap: _showLanguageDialog,
+              ),
 
-            // Account Section
-            _buildSectionHeader(context, AppStrings.settingsAccount),
-            _buildSettingsTile(
-              context,
-              icon: Icons.person_outline,
-              title: AppStrings.settingsProfile,
-              onTap: () => context.push(AppRouter.profile),
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.workspace_premium,
-              title: AppStrings.settingsPremium,
-              subtitle: 'Free',
-              onTap: () async {
-                await RevenueCatService.showPaywall(context);
-              },
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.spacing8,
-                  vertical: AppSizes.spacing4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-                ),
-                child: Text(
-                  'Upgrade',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              // Data Section
+              _buildSectionHeader(context, AppStrings.settingsData),
+              _buildSettingsTile(
+                context,
+                icon: Icons.file_download_outlined,
+                title: AppStrings.settingsExport,
+                onTap: () => ExportService.showExportDialog(context),
               ),
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.sync,
-              title: AppStrings.settingsSync,
-              trailing: Icon(
-                isLoggedIn ? Icons.check_circle : Icons.cloud_off,
-                color: isLoggedIn ? AppColors.success : AppColors.textTertiary,
-                size: 20,
+              _buildSettingsTile(
+                context,
+                icon: Icons.delete_outline,
+                title: AppStrings.settingsDeleteAll,
+                titleColor: AppColors.error,
+                onTap: () => _showDeleteConfirmation(context),
               ),
-              onTap: () {
-                if (!isLoggedIn) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Login untuk mengaktifkan sinkronisasi cloud',
+              _buildSettingsTile(
+                context,
+                icon: Icons.storage_outlined,
+                title: AppStrings.settingsStorage,
+                subtitle: _storageSize,
+                showArrow: false,
+                onTap: () {},
+              ),
+
+              // About Section
+              _buildSectionHeader(context, AppStrings.settingsAbout),
+              _buildSettingsTile(
+                context,
+                icon: Icons.info_outline,
+                title: AppStrings.settingsAboutApp,
+                onTap: _showAboutDialog,
+              ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.description_outlined,
+                title: AppStrings.settingsTerms,
+                onTap: _showTermsDialog,
+              ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.privacy_tip_outlined,
+                title: AppStrings.settingsPrivacy,
+                onTap: _showPrivacyDialog,
+              ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.star_outline,
+                title: AppStrings.settingsRate,
+                onTap: _rateApp,
+              ),
+
+              // Logout Button
+              Padding(
+                padding: const EdgeInsets.all(AppSizes.spacing16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading
+                        ? null
+                        : () => _showLogoutConfirmation(context),
+                    icon: const Icon(Icons.logout, color: AppColors.error),
+                    label: Text(
+                      isLoggedIn ? AppStrings.settingsLogout : 'Masuk',
+                      style: TextStyle(
+                        color: isLoggedIn ? AppColors.error : AppColors.primary,
                       ),
                     ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Sinkronisasi dalam proses...'),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            // App Section
-            _buildSectionHeader(context, AppStrings.settingsApp),
-            _buildSettingsTile(
-              context,
-              icon: Icons.dark_mode_outlined,
-              title: AppStrings.settingsDarkMode,
-              trailing: Switch(
-                value: _isDarkMode,
-                onChanged: _toggleDarkMode,
-                activeThumbColor: AppColors.primary,
-              ),
-              onTap: () => _toggleDarkMode(!_isDarkMode),
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.notifications_outlined,
-              title: AppStrings.settingsNotification,
-              trailing: Switch(
-                value: _isNotificationEnabled,
-                onChanged: _toggleNotifications,
-                activeThumbColor: AppColors.primary,
-              ),
-              onTap: () => _toggleNotifications(!_isNotificationEnabled),
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.language,
-              title: AppStrings.settingsLanguage,
-              subtitle: currentLanguage,
-              onTap: _showLanguageDialog,
-            ),
-
-            // Data Section
-            _buildSectionHeader(context, AppStrings.settingsData),
-            _buildSettingsTile(
-              context,
-              icon: Icons.file_download_outlined,
-              title: AppStrings.settingsExport,
-              onTap: () => ExportService.showExportDialog(context),
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.delete_outline,
-              title: AppStrings.settingsDeleteAll,
-              titleColor: AppColors.error,
-              onTap: () => _showDeleteConfirmation(context),
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.storage_outlined,
-              title: AppStrings.settingsStorage,
-              subtitle: _storageSize,
-              showArrow: false,
-              onTap: () {},
-            ),
-
-            // About Section
-            _buildSectionHeader(context, AppStrings.settingsAbout),
-            _buildSettingsTile(
-              context,
-              icon: Icons.info_outline,
-              title: AppStrings.settingsAboutApp,
-              onTap: _showAboutDialog,
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.description_outlined,
-              title: AppStrings.settingsTerms,
-              onTap: _showTermsDialog,
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.privacy_tip_outlined,
-              title: AppStrings.settingsPrivacy,
-              onTap: _showPrivacyDialog,
-            ),
-            _buildSettingsTile(
-              context,
-              icon: Icons.star_outline,
-              title: AppStrings.settingsRate,
-              onTap: _rateApp,
-            ),
-
-            // Logout Button
-            Padding(
-              padding: const EdgeInsets.all(AppSizes.spacing16),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading
-                      ? null
-                      : () => _showLogoutConfirmation(context),
-                  icon: const Icon(Icons.logout, color: AppColors.error),
-                  label: Text(
-                    isLoggedIn ? AppStrings.settingsLogout : 'Masuk',
-                    style: TextStyle(
-                      color: isLoggedIn ? AppColors.error : AppColors.primary,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: isLoggedIn ? AppColors.error : AppColors.primary,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isLoggedIn ? AppColors.error : AppColors.primary,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-            // Version
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSizes.spacing16),
-                child: Text(
-                  'v0.1.0',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
+              // Version
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSizes.spacing16),
+                  child: Text(
+                    'v0.1.0',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSizes.spacing40),
-          ],
+              const SizedBox(height: AppSizes.spacing40),
+            ],
+          ),
         ),
       ),
     );
@@ -516,16 +624,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool showArrow = true,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Material(
-      color: AppColors.surface,
+      color: theme.colorScheme.surface,
       child: ListTile(
-        leading: Icon(icon, color: titleColor ?? AppColors.textSecondary),
-        title: Text(title, style: TextStyle(color: titleColor)),
+        leading: Icon(
+          icon,
+          color:
+              titleColor ??
+              theme.listTileTheme.iconColor ??
+              AppColors.textSecondary,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: titleColor ?? theme.textTheme.bodyLarge?.color,
+          ),
+        ),
         subtitle: subtitle != null ? Text(subtitle) : null,
         trailing:
             trailing ??
             (showArrow
-                ? const Icon(Icons.chevron_right, color: AppColors.textTertiary)
+                ? Icon(
+                    Icons.chevron_right,
+                    color: theme.iconTheme.color?.withValues(alpha: 0.8),
+                  )
                 : null),
         onTap: onTap,
       ),
@@ -535,25 +658,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Hapus Semua Data?'),
         content: const Text(
           'Tindakan ini akan menghapus semua data lamaran kamu secara permanen. Data tidak dapat dikembalikan.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Batal'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               setState(() => _isLoading = true);
 
               try {
                 await JobRepository.deleteAll();
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
                   const SnackBar(
                     content: Text('Semua data aplikasi berhasil dihapus'),
                   ),
@@ -561,14 +684,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _loadStorageSize();
               } catch (e) {
                 if (!mounted) return;
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toString()}'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
               } finally {
                 if (mounted) {
                   setState(() => _isLoading = false);
@@ -594,35 +715,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Keluar?'),
         content: const Text('Apakah kamu yakin ingin keluar dari akun?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Batal'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               setState(() => _isLoading = true);
 
               try {
                 await AuthService.signOut();
                 await AppPreferences.clearUserData();
 
-                if (!context.mounted) return;
-                context.go(AppRouter.login);
+                if (!mounted) return;
+                this.context.go(AppRouter.login);
               } catch (e) {
                 if (!mounted) return;
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toString()}'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
               } finally {
                 if (mounted) {
                   setState(() => _isLoading = false);

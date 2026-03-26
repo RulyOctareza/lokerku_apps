@@ -53,31 +53,26 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    // Use addPostFrameCallback to ensure safe navigation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+    // Check if user has completed onboarding
+    final hasCompletedOnboarding = AppPreferences.hasCompletedOnboarding;
 
-      // Check if user has completed onboarding
-      final hasCompletedOnboarding = AppPreferences.hasCompletedOnboarding;
+    if (!hasCompletedOnboarding) {
+      // First time user - show onboarding
+      context.go(AppRouter.onboarding);
+      return;
+    }
 
-      if (!hasCompletedOnboarding) {
-        // First time user - show onboarding
-        context.go(AppRouter.onboarding);
-        return;
-      }
+    // Check if user is logged in or in guest mode
+    final isLoggedIn = AuthService.isLoggedIn;
+    final isGuestMode = AppPreferences.isGuestMode;
 
-      // Check if user is logged in or in guest mode
-      final isLoggedIn = AuthService.isLoggedIn;
-      final isGuestMode = AppPreferences.isGuestMode;
-
-      if (isLoggedIn || isGuestMode) {
-        // User is authenticated or in guest mode - go to home
-        context.go(AppRouter.home);
-      } else {
-        // User completed onboarding but not logged in - show login
-        context.go(AppRouter.login);
-      }
-    });
+    if (isLoggedIn || isGuestMode) {
+      // User is authenticated or in guest mode - go to home
+      context.go(AppRouter.home);
+    } else {
+      // User completed onboarding but not logged in - show login
+      context.go(AppRouter.login);
+    }
   }
 
   @override

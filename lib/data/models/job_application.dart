@@ -162,12 +162,11 @@ class JobApplication {
   void updateStatus(ApplicationStatus newStatus, {String? notes}) {
     status = newStatus;
     updatedAt = DateTime.now();
-    logs.add(
-      StatusLog()
-        ..status = newStatus.name
-        ..timestamp = updatedAt
-        ..notes = notes,
-    );
+    final nextLog = StatusLog()
+      ..status = newStatus.name
+      ..timestamp = updatedAt
+      ..notes = notes;
+    logs = List<StatusLog>.from(logs, growable: true)..add(nextLog);
     isSynced = false;
   }
 
@@ -225,13 +224,16 @@ class JobApplication {
 
     // Parse logs
     final logsData = data['logs'] as List<dynamic>? ?? [];
-    job.logs = logsData.map((logData) {
-      final logMap = logData as Map<String, dynamic>;
-      return StatusLog()
-        ..status = logMap['status'] as String
-        ..timestamp = DateTime.parse(logMap['timestamp'] as String).toLocal()
-        ..notes = logMap['notes'] as String?;
-    }).toList();
+    job.logs = List<StatusLog>.from(
+      logsData.map((logData) {
+        final logMap = logData as Map<String, dynamic>;
+        return StatusLog()
+          ..status = logMap['status'] as String
+          ..timestamp = DateTime.parse(logMap['timestamp'] as String).toLocal()
+          ..notes = logMap['notes'] as String?;
+      }),
+      growable: true,
+    );
 
     return job;
   }

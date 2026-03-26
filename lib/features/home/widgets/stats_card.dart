@@ -21,10 +21,11 @@ class StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(AppSizes.spacing16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
         boxShadow: [
           BoxShadow(
@@ -48,9 +49,9 @@ class StatsCard extends StatelessWidget {
           ),
           Text(
             subtitle,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: theme.textTheme.bodySmall?.color,
+            ),
           ),
         ],
       ),

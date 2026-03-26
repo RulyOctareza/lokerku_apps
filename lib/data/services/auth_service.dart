@@ -4,29 +4,44 @@ import 'package:google_sign_in/google_sign_in.dart';
 /// Authentication Service
 /// Handles Firebase Authentication with Google Sign-In
 class AuthService {
-  static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final GoogleSignIn _googleSignIn = GoogleSignIn();
 
+  static FirebaseAuth get _auth => FirebaseAuth.instance;
+
+  static User? _safeCurrentUser() {
+    try {
+      return _auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Get current user
-  static User? get currentUser => _auth.currentUser;
+  static User? get currentUser => _safeCurrentUser();
 
   /// Check if user is logged in
-  static bool get isLoggedIn => _auth.currentUser != null;
+  static bool get isLoggedIn => _safeCurrentUser() != null;
 
   /// Get user ID
-  static String? get userId => _auth.currentUser?.uid;
+  static String? get userId => _safeCurrentUser()?.uid;
 
   /// Get user display name
-  static String? get displayName => _auth.currentUser?.displayName;
+  static String? get displayName => _safeCurrentUser()?.displayName;
 
   /// Get user email
-  static String? get email => _auth.currentUser?.email;
+  static String? get email => _safeCurrentUser()?.email;
 
   /// Get user photo URL
-  static String? get photoUrl => _auth.currentUser?.photoURL;
+  static String? get photoUrl => _safeCurrentUser()?.photoURL;
 
   /// Stream of auth state changes
-  static Stream<User?> get authStateChanges => _auth.authStateChanges();
+  static Stream<User?> get authStateChanges {
+    try {
+      return _auth.authStateChanges();
+    } catch (_) {
+      return const Stream<User?>.empty();
+    }
+  }
 
   /// Sign in with Google
   static Future<UserCredential?> signInWithGoogle() async {

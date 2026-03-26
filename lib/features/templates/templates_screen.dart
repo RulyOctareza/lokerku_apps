@@ -12,7 +12,14 @@ import 'providers/template_providers.dart';
 import 'widgets/template_card.dart';
 
 class TemplatesScreen extends ConsumerStatefulWidget {
-  const TemplatesScreen({super.key});
+  final Future<bool> Function(Template template) canAccessChecker;
+  final Future<void> Function(BuildContext context) paywallLauncher;
+
+  const TemplatesScreen({
+    super.key,
+    this.canAccessChecker = TemplateRepository.canAccess,
+    this.paywallLauncher = RevenueCatService.showPaywall,
+  });
 
   @override
   ConsumerState<TemplatesScreen> createState() => _TemplatesScreenState();
@@ -23,31 +30,50 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
     BuildContext context,
     Template template,
   ) async {
+    var isLoadingVisible = false;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+    isLoadingVisible = true;
 
-    final canAccess = await TemplateRepository.canAccess(template);
-    if (context.mounted) {
-      Navigator.pop(context); // close loading
+    try {
+      final canAccess = await widget.canAccessChecker(template);
+
+      if (!context.mounted) return;
+
+      if (isLoadingVisible) {
+        Navigator.of(context, rootNavigator: true).pop();
+        isLoadingVisible = false;
+      }
+
+      if (!canAccess) {
+        _showPremiumDialog(context);
+        return;
+      }
+
+      _showTemplateContent(context, template);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memuat template: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (isLoadingVisible && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
     }
-
-    if (!context.mounted) return;
-
-    if (!canAccess) {
-      _showPremiumDialog(context);
-      return;
-    }
-
-    _showTemplateContent(context, template);
   }
 
   void _showPremiumDialog(BuildContext context) {
+    final rootContext = this.context;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
         ),
@@ -72,13 +98,14 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Nanti saja'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
-              await RevenueCatService.showPaywall(context);
+              Navigator.pop(dialogContext);
+              if (!rootContext.mounted) return;
+              await widget.paywallLauncher(rootContext);
             },
             child: const Text(AppStrings.premiumSubscribe),
           ),
@@ -101,14 +128,15 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
   }
 
   void _showTemplateContent(BuildContext context, Template template) {
+    final rootContext = this.context;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
+      builder: (sheetContext) => Container(
+        height: MediaQuery.of(sheetContext).size.height * 0.75,
+        decoration: BoxDecoration(
+          color: Theme.of(sheetContext).colorScheme.surface,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppSizes.bottomSheetRadius),
           ),
@@ -136,11 +164,11 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                   Expanded(
                     child: Text(
                       template.title,
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: Theme.of(sheetContext).textTheme.titleLarge,
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pop(sheetContext),
                     icon: const Icon(Icons.close),
                   ),
                 ],
@@ -151,7 +179,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                 padding: const EdgeInsets.all(AppSizes.spacing24),
                 child: Text(
                   template.content,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(sheetContext).textTheme.bodyMedium,
                 ),
               ),
             ),
@@ -162,8 +190,9 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: template.content));
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.pop(sheetContext);
+                    if (!rootContext.mounted) return;
+                    ScaffoldMessenger.of(rootContext).showSnackBar(
                       const SnackBar(
                         content: Text(AppStrings.copied),
                         backgroundColor: AppColors.success,
@@ -186,44 +215,47 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
     final templatesAsync = ref.watch(templatesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text(AppStrings.templatesTitle)),
-      body: templatesAsync.when(
-        data: (templates) {
-          final whatsappTemplates = templates
-              .where((t) => t.category == TemplateCategory.whatsapp)
-              .toList();
-          final emailTemplates = templates
-              .where((t) => t.category == TemplateCategory.email)
-              .toList();
+      body: SafeArea(
+        top: false,
+        child: templatesAsync.when(
+          data: (templates) {
+            final whatsappTemplates = templates
+                .where((t) => t.category == TemplateCategory.whatsapp)
+                .toList();
+            final emailTemplates = templates
+                .where((t) => t.category == TemplateCategory.email)
+                .toList();
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(AppSizes.spacing16),
-                  child: Text(
-                    AppStrings.templatesSubtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppSizes.spacing16),
+                    child: Text(
+                      AppStrings.templatesSubtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
-                ),
-                if (whatsappTemplates.isNotEmpty)
-                  _buildSection('WhatsApp', whatsappTemplates),
-                if (emailTemplates.isNotEmpty)
-                  _buildSection('Email', emailTemplates),
-                const SizedBox(height: AppSizes.spacing100),
-              ],
+                  if (whatsappTemplates.isNotEmpty)
+                    _buildSection('WhatsApp', whatsappTemplates),
+                  if (emailTemplates.isNotEmpty)
+                    _buildSection('Email', emailTemplates),
+                  const SizedBox(height: AppSizes.spacing100),
+                ],
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
+            child: Text(
+              'Error: ${error.toString()}',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text(
-            'Error: ${error.toString()}',
-            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
       ),

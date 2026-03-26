@@ -25,8 +25,9 @@ class JobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Material(
-      color: AppColors.surface,
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
       child: InkWell(
         onTap: onTap,
@@ -109,7 +110,7 @@ class JobCard extends StatelessWidget {
                   Text(
                     timeAgo,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textTertiary,
+                      color: theme.textTheme.bodySmall?.color,
                     ),
                   ),
                 ],

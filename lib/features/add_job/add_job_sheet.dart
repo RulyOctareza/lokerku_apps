@@ -88,166 +88,169 @@ class _AddJobSheetState extends State<AddJobSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppSizes.bottomSheetRadius),
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppSizes.bottomSheetRadius),
+          ),
         ),
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.spacing24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle
-                Center(
-                  child: Container(
-                    width: AppSizes.bottomSheetHandleWidth,
-                    height: AppSizes.bottomSheetHandleHeight,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Title
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        AppStrings.addApplicationTitle,
-                        style: Theme.of(context).textTheme.titleLarge,
-                        overflow: TextOverflow.ellipsis,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.spacing24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: AppSizes.bottomSheetHandleWidth,
+                      height: AppSizes.bottomSheetHandleHeight,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Title
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          AppStrings.addApplicationTitle,
+                          style: Theme.of(context).textTheme.titleLarge,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSizes.spacing24),
+
+                  // Company Name
+                  Text(
+                    '${AppStrings.companyNameLabel} *',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: AppSizes.spacing8),
+                  TextFormField(
+                    controller: _companyController,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.companyNameHint,
                     ),
-                  ],
-                ),
-                const SizedBox(height: AppSizes.spacing24),
-
-                // Company Name
-                Text(
-                  '${AppStrings.companyNameLabel} *',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: AppSizes.spacing8),
-                TextFormField(
-                  controller: _companyController,
-                  decoration: InputDecoration(
-                    hintText: AppStrings.companyNameHint,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return AppStrings.errorRequired;
+                      }
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppStrings.errorRequired;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSizes.spacing16),
+                  const SizedBox(height: AppSizes.spacing16),
 
-                // Role
-                Text(
-                  '${AppStrings.roleLabel} *',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: AppSizes.spacing8),
-                TextFormField(
-                  controller: _roleController,
-                  decoration: InputDecoration(hintText: AppStrings.roleHint),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppStrings.errorRequired;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Platform
-                Text(
-                  '${AppStrings.platformLabel} *',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: AppSizes.spacing8),
-                DropdownButtonFormField<JobPlatform>(
-                  initialValue: _selectedPlatform,
-                  decoration: const InputDecoration(),
-                  items: JobPlatform.values.map((platform) {
-                    return DropdownMenuItem(
-                      value: platform,
-                      child: Text(platform.displayName),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedPlatform = value!;
-                    });
-                  },
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Salary (Optional)
-                Text(
-                  AppStrings.salaryLabel,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: AppSizes.spacing8),
-                TextFormField(
-                  controller: _salaryController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: AppStrings.salaryHint,
-                    prefixText: 'Rp ',
+                  // Role
+                  Text(
+                    '${AppStrings.roleLabel} *',
+                    style: Theme.of(context).textTheme.labelLarge,
                   ),
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-
-                // Notes (Optional)
-                Text(
-                  AppStrings.notesLabel,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: AppSizes.spacing8),
-                TextFormField(
-                  controller: _notesController,
-                  maxLines: 2,
-                  decoration: InputDecoration(hintText: AppStrings.notesHint),
-                ),
-                const SizedBox(height: AppSizes.spacing24),
-
-                // Save Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _saveApplication,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(AppStrings.saveApplication),
+                  const SizedBox(height: AppSizes.spacing8),
+                  TextFormField(
+                    controller: _roleController,
+                    decoration: InputDecoration(hintText: AppStrings.roleHint),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return AppStrings.errorRequired;
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: AppSizes.spacing16),
-              ],
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Platform
+                  Text(
+                    '${AppStrings.platformLabel} *',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: AppSizes.spacing8),
+                  DropdownButtonFormField<JobPlatform>(
+                    initialValue: _selectedPlatform,
+                    decoration: const InputDecoration(),
+                    items: JobPlatform.values.map((platform) {
+                      return DropdownMenuItem(
+                        value: platform,
+                        child: Text(platform.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPlatform = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Salary (Optional)
+                  Text(
+                    AppStrings.salaryLabel,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: AppSizes.spacing8),
+                  TextFormField(
+                    controller: _salaryController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.salaryHint,
+                      prefixText: 'Rp ',
+                    ),
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+
+                  // Notes (Optional)
+                  Text(
+                    AppStrings.notesLabel,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: AppSizes.spacing8),
+                  TextFormField(
+                    controller: _notesController,
+                    maxLines: 2,
+                    decoration: InputDecoration(hintText: AppStrings.notesHint),
+                  ),
+                  const SizedBox(height: AppSizes.spacing24),
+
+                  // Save Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveApplication,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(AppStrings.saveApplication),
+                    ),
+                  ),
+                  const SizedBox(height: AppSizes.spacing16),
+                ],
+              ),
             ),
           ),
         ),

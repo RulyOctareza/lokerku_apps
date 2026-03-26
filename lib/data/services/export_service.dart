@@ -147,7 +147,7 @@ class ExportService {
 
     // Hide loading
     if (context.mounted) {
-      Navigator.pop(context);
+      Navigator.of(context, rootNavigator: true).pop();
 
       if (filePath != null) {
         ScaffoldMessenger.of(context).showSnackBar(

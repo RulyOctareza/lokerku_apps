@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lokerku_apps/core/constants/app_colors.dart';
-import 'package:lokerku_apps/features/home/widgets/stats_card.dart';
+import 'package:lokerku_apps/core/constants/app_strings.dart';
 import 'package:lokerku_apps/features/home/widgets/job_card.dart';
+import 'package:lokerku_apps/features/home/widgets/recent_applications_header.dart';
+import 'package:lokerku_apps/features/home/widgets/stats_card.dart';
 
 void main() {
   group('StatsCard Widget Tests', () {
@@ -147,6 +149,31 @@ void main() {
       );
 
       expect(find.byIcon(Icons.business_rounded), findsOneWidget);
+    });
+  });
+
+  group('RecentApplicationsHeader Widget Tests', () {
+    testWidgets('shows title and view all action', (
+      WidgetTester tester,
+    ) async {
+      var tapped = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RecentApplicationsHeader(
+              onViewAll: () => tapped = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(AppStrings.homeRecentApplications), findsOneWidget);
+      expect(find.text(AppStrings.homeViewAll), findsOneWidget);
+
+      await tester.tap(find.text(AppStrings.homeViewAll));
+      await tester.pumpAndSettle();
+
+      expect(tapped, true);
     });
   });
 }

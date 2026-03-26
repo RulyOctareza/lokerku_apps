@@ -4,13 +4,36 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/router/app_router.dart';
+import '../../data/repositories/job_repository.dart';
 import '../../data/services/app_preferences.dart';
 import '../../data/services/auth_service.dart';
+import '../../data/services/sync_service.dart';
+
+class AuthenticatedUserData {
+  final String? displayName;
+  final String? email;
+  final String? photoUrl;
+
+  const AuthenticatedUserData({this.displayName, this.email, this.photoUrl});
+}
+
+enum _PostLoginChoice { syncNow, later }
 
 /// Login Screen
 /// Provides Google Sign-In and Guest Mode options
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final Future<AuthenticatedUserData?> Function()? signInAction;
+  final Future<int> Function()? localJobCountLoader;
+  final Future<void> Function()? localToCloudSyncAction;
+  final Future<void> Function()? onLoginComplete;
+
+  const LoginScreen({
+    super.key,
+    this.signInAction,
+    this.localJobCountLoader,
+    this.localToCloudSyncAction,
+    this.onLoginComplete,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -19,16 +42,100 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
+  Future<AuthenticatedUserData?> _signIn() async {
+    if (widget.signInAction != null) {
+      return widget.signInAction!();
+    }
+
+    final userCredential = await AuthService.signInWithGoogle();
+    final user = userCredential?.user;
+    if (user == null) return null;
+
+    return AuthenticatedUserData(
+      displayName: user.displayName,
+      email: user.email,
+      photoUrl: user.photoURL,
+    );
+  }
+
+  Future<int> _loadLocalJobCount() async {
+    return widget.localJobCountLoader?.call() ?? JobRepository.getCount();
+  }
+
+  Future<void> _navigateToHome() async {
+    if (widget.onLoginComplete != null) {
+      await widget.onLoginComplete!();
+      return;
+    }
+
+    if (!mounted) return;
+    context.go(AppRouter.home);
+  }
+
+  Future<_PostLoginChoice?> _showMigrationDialog(int localCount) {
+    return showDialog<_PostLoginChoice>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sinkronkan data lokal?'),
+        content: Text(
+          'Kami menemukan $localCount data lamaran di perangkat ini. '
+          'Anda bisa langsung menyinkronkannya ke akun Google sekarang, atau melakukannya nanti dari menu Sync.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, _PostLoginChoice.later),
+            child: const Text('Nanti'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, _PostLoginChoice.syncNow),
+            child: const Text('Sync sekarang'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handlePostLoginMigration(bool wasGuestMode) async {
+    if (!wasGuestMode) return;
+
+    final localJobCount = await _loadLocalJobCount();
+    if (!mounted || localJobCount <= 0) return;
+
+    final choice = await _showMigrationDialog(localJobCount);
+    if (!mounted || choice != _PostLoginChoice.syncNow) return;
+
+    try {
+      await (widget.localToCloudSyncAction?.call() ??
+          SyncService.syncToCloud());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Data lokal berhasil dikirim ke akun Google'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login berhasil, tetapi sync gagal: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Call actual Google Sign-In
-      final userCredential = await AuthService.signInWithGoogle();
+      final wasGuestMode = AppPreferences.isGuestMode;
+      final user = await _signIn();
 
-      if (userCredential == null) {
+      if (user == null) {
         // User cancelled sign-in
         if (mounted) {
           setState(() {
@@ -40,12 +147,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Save user info to preferences
       await AppPreferences.setGuestMode(false);
-      await AppPreferences.setUserDisplayName(userCredential.user?.displayName);
-      await AppPreferences.setUserEmail(userCredential.user?.email);
-      await AppPreferences.setUserPhotoUrl(userCredential.user?.photoURL);
+      await AppPreferences.setUserDisplayName(user.displayName);
+      await AppPreferences.setUserEmail(user.email);
+      await AppPreferences.setUserPhotoUrl(user.photoUrl);
 
+      await _handlePostLoginMigration(wasGuestMode);
       if (!mounted) return;
-      context.go(AppRouter.home);
+      await _navigateToHome();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

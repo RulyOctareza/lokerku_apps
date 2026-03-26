@@ -70,8 +70,8 @@ class TimelineItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Status & Time
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         data.status,
@@ -83,7 +83,10 @@ class TimelineItem extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.normal,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: AppSizes.spacing4),
                       Text(
                         data.time,
                         style: Theme.of(context).textTheme.bodySmall,

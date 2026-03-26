@@ -10,17 +10,15 @@ import '../../data/services/app_preferences.dart';
 import '../../data/services/notification_service.dart';
 import 'widgets/timeline_item.dart';
 
-typedef ReminderPicker = Future<DateTime?> Function(
-  BuildContext context,
-  JobApplication job,
-  DateTime? currentReminder,
-);
+typedef ReminderPicker =
+    Future<DateTime?> Function(
+      BuildContext context,
+      JobApplication job,
+      DateTime? currentReminder,
+    );
 
-typedef ReminderScheduler = Future<void> Function(
-  int jobId,
-  String title,
-  DateTime scheduledAt,
-);
+typedef ReminderScheduler =
+    Future<void> Function(int jobId, String title, DateTime scheduledAt);
 
 /// Job Detail Screen
 /// Renders a full view of a job application plus timeline updates
@@ -28,7 +26,7 @@ class JobDetailScreen extends StatefulWidget {
   final int jobId;
   final Future<JobApplication?> Function(int id) jobLoader;
   final Future<void> Function(int id, ApplicationStatus status, {String? notes})
-      statusUpdater;
+  statusUpdater;
   final Future<void> Function(int id) jobDeleter;
   final ReminderPicker? reminderPicker;
   final ReminderScheduler? reminderScheduler;
@@ -51,6 +49,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   JobApplication? _job;
   bool _isLoading = true;
   bool _isDeleting = false;
+  bool _isUpdatingReminder = false;
   DateTime? _reminder;
 
   @override
@@ -206,40 +205,68 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final picked = await _pickReminder(job);
     if (picked == null) return;
 
-    await AppPreferences.setJobReminder(job.id, picked);
-    final scheduler = widget.reminderScheduler ?? _defaultReminderScheduler;
-    await scheduler(
-      job.id,
-      '${job.companyName} - ${job.role}',
-      picked,
-    );
+    setState(() => _isUpdatingReminder = true);
 
-    if (!mounted) return;
-    setState(() {
-      _reminder = picked;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(AppStrings.reminderSaved),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    try {
+      final scheduler = widget.reminderScheduler ?? _defaultReminderScheduler;
+      await scheduler(job.id, '${job.companyName} - ${job.role}', picked);
+      await AppPreferences.setJobReminder(job.id, picked);
+
+      if (!mounted) return;
+      setState(() {
+        _reminder = picked;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(AppStrings.reminderSaved),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      await AppPreferences.setJobReminder(job.id, null);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyimpan pengingat: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingReminder = false);
+      }
+    }
   }
 
   Future<void> _clearReminder() async {
     final job = _job;
     if (job == null) return;
-    await AppPreferences.setJobReminder(job.id, null);
-    if (!mounted) return;
-    setState(() {
-      _reminder = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(AppStrings.reminderCleared),
-        backgroundColor: AppColors.textTertiary,
-      ),
-    );
+    setState(() => _isUpdatingReminder = true);
+    try {
+      await AppPreferences.setJobReminder(job.id, null);
+      if (!mounted) return;
+      setState(() {
+        _reminder = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(AppStrings.reminderCleared),
+          backgroundColor: AppColors.textTertiary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menghapus pengingat: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingReminder = false);
+      }
+    }
   }
 
   @override
@@ -273,34 +300,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _job == null
-          ? const Center(child: Text('Data lamaran tidak ditemukan'))
-          : RefreshIndicator(
-              onRefresh: _refresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(AppSizes.spacing16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(context),
-                    const SizedBox(height: AppSizes.spacing24),
-                    _buildActionRow(context),
-                    _buildReminderSection(context),
-                    const SizedBox(height: AppSizes.spacing24),
-                    Text(
-                      AppStrings.timelineTitle,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: AppSizes.spacing16),
-                    _buildTimeline(),
-                    const SizedBox(height: AppSizes.spacing40),
-                  ],
+      body: SafeArea(
+        top: false,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _job == null
+            ? const Center(child: Text('Data lamaran tidak ditemukan'))
+            : RefreshIndicator(
+                onRefresh: _refresh,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(AppSizes.spacing16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(context),
+                      const SizedBox(height: AppSizes.spacing24),
+                      _buildActionRow(context),
+                      _buildReminderSection(context),
+                      const SizedBox(height: AppSizes.spacing24),
+                      Text(
+                        AppStrings.timelineTitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppSizes.spacing16),
+                      _buildTimeline(),
+                      const SizedBox(height: AppSizes.spacing40),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -458,7 +488,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               const Spacer(),
               if (hasReminder)
                 TextButton(
-                  onPressed: _clearReminder,
+                  onPressed: _isUpdatingReminder ? null : _clearReminder,
                   child: const Text(AppStrings.delete),
                 ),
             ],
@@ -467,17 +497,26 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           Text(
             reminderText,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: hasReminder ? AppColors.textSecondary : AppColors.textTertiary,
+              color: hasReminder
+                  ? AppColors.textSecondary
+                  : AppColors.textTertiary,
             ),
           ),
           const SizedBox(height: AppSizes.spacing12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: _isDeleting ? null : _setReminder,
+              onPressed: (_isDeleting || _isUpdatingReminder)
+                  ? null
+                  : _setReminder,
               child: Text(actionLabel),
             ),
           ),
+          if (_isUpdatingReminder)
+            const Padding(
+              padding: EdgeInsets.only(top: AppSizes.spacing12),
+              child: LinearProgressIndicator(),
+            ),
         ],
       ),
     );
@@ -635,99 +674,102 @@ class _UpdateStatusSheetState extends State<_UpdateStatusSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppSizes.bottomSheetRadius),
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppSizes.bottomSheetRadius),
+          ),
         ),
-      ),
-      padding: const EdgeInsets.all(AppSizes.spacing24),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: AppSizes.bottomSheetHandleWidth,
-                height: AppSizes.bottomSheetHandleHeight,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+        padding: const EdgeInsets.all(AppSizes.spacing24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: AppSizes.bottomSheetHandleWidth,
+                  height: AppSizes.bottomSheetHandleHeight,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSizes.spacing16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  AppStrings.updateStatus,
-                  style: Theme.of(context).textTheme.titleLarge,
+              const SizedBox(height: AppSizes.spacing16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    AppStrings.updateStatus,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSizes.spacing16),
+              Text(
+                'Pilih status baru',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: AppSizes.spacing12),
+              RadioGroup<ApplicationStatus>(
+                groupValue: _selectedStatus,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedStatus = value);
+                  }
+                },
+                child: Column(
+                  children: ApplicationStatus.values.map((status) {
+                    return RadioListTile<ApplicationStatus>(
+                      value: status,
+                      title: Text(status.displayName),
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: AppColors.primary,
+                      dense: true,
+                    );
+                  }).toList(),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
+              ),
+              const SizedBox(height: AppSizes.spacing16),
+              Text(
+                '${AppStrings.notesLabel} (Opsional)',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: AppSizes.spacing8),
+              TextFormField(
+                controller: _notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  hintText: 'Contoh: Interview dengan Bu Ani',
                 ),
-              ],
-            ),
-            const SizedBox(height: AppSizes.spacing16),
-            Text(
-              'Pilih status baru',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: AppSizes.spacing12),
-            RadioGroup<ApplicationStatus>(
-              groupValue: _selectedStatus,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _selectedStatus = value);
-                }
-              },
-              child: Column(
-                children: ApplicationStatus.values.map((status) {
-                  return RadioListTile<ApplicationStatus>(
-                    value: status,
-                    title: Text(status.displayName),
-                    contentPadding: EdgeInsets.zero,
-                    activeColor: AppColors.primary,
-                    dense: true,
-                  );
-                }).toList(),
               ),
-            ),
-            const SizedBox(height: AppSizes.spacing16),
-            Text(
-              '${AppStrings.notesLabel} (Opsional)',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: AppSizes.spacing8),
-            TextFormField(
-              controller: _notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'Contoh: Interview dengan Bu Ani',
+              const SizedBox(height: AppSizes.spacing24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _handleSave,
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Simpan Status'),
+                ),
               ),
-            ),
-            const SizedBox(height: AppSizes.spacing24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _handleSave,
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Simpan Status'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -143,5 +143,33 @@ void main() {
       expect(find.text(AppStrings.reminderNone), findsOneWidget);
       expect(AppPreferences.getJobReminder(job.id), isNull);
     });
+
+    testWidgets('keeps reminder unset when scheduler fails', (
+      WidgetTester tester,
+    ) async {
+      final reminder = DateTime(2026, 4, 2, 14, 0);
+
+      await tester.pumpWidget(
+        _wrap(
+          JobDetailScreen(
+            jobId: job.id,
+            jobLoader: (_) async => job,
+            reminderPicker: (_, __, ___) async => reminder,
+            reminderScheduler: (_, __, ___) async {
+              throw Exception('scheduler failed');
+            },
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(AppStrings.reminderAddAction));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Gagal menyimpan pengingat'), findsOneWidget);
+      expect(AppPreferences.getJobReminder(job.id), isNull);
+      expect(find.text(AppStrings.reminderNone), findsOneWidget);
+    });
   });
 }
