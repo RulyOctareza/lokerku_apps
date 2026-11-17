@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/preview/hero.png" alt="LokerKu — ilustrasi aplikasi pelacak lamaran kerja" width="100%">
+  <img src="docs/preview/hero.svg" alt="LokerKu — ilustrasi aplikasi pelacak lamaran kerja" width="100%">
 </p>
 
 <h1 align="center">LokerKu</h1>
